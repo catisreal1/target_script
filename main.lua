@@ -1,87 +1,129 @@
+-- Tự động dọn dẹp UI cũ của Rayfield hoặc script cũ nếu có
+if game.CoreGui:FindFirstChild("Rayfield") then game.CoreGui.Rayfield:Destroy() end
+if game.CoreGui:FindFirstChild("SmartHunterTSB") then game.CoreGui.SmartHunterTSB:Destroy() end
 
-if game.CoreGui:FindFirstChild("SmartHunterTSB") then
-    game.CoreGui.SmartHunterTSB:Destroy()
-end
+-- TẢI VÀ KHỞI TẠO RAYFIELD UI (BẢN SIU CẤP)
+local Rayfield = loadstring(game:HttpGet('https://sirius.menu/rayfield'))()
 
+local Window = Rayfield:CreateWindow({
+   Name = "🔥 SIU CẤP TARGET HUNTER - TSB ⚡",
+   LoadingTitle = "ĐANG KHỞI ĐỘNG HỆ THỐNG SĂN MỒI...",
+   LoadingSubtitle = "By Game Thủ Sĩu Cấp",
+   ConfigurationSaving = { Enabled = false },
+   KeySystem = false,
+})
 
-local ScreenGui = Instance.new("ScreenGui", game.CoreGui)
-ScreenGui.Name, ScreenGui.ResetOnSpawn = "SmartHunterTSB", false
+-- Tạo Tab Đi Săn
+local MainTab = Window:CreateTab("🔫 Đi Săn Siêu Tốc", nil)
 
-local MainFrame = Instance.new("Frame", ScreenGui)
-MainFrame.Name, MainFrame.Size, MainFrame.Position = "MainFrame", UDim2.new(0, 260, 0, 190), UDim2.new(0.05, 0, 0.35, 0)
-MainFrame.BackgroundColor3, MainFrame.BorderSizePixel, MainFrame.Active, MainFrame.Draggable = Color3.fromRGB(20, 20, 20), 0, true, true
+-- Ô nhập tên mục tiêu
+local targetInputName = ""
+MainTab:CreateInput({
+   Name = "Tên mục tiêu",
+   PlaceholderText = "Nhập tên @name của thk mà m muốn săn...",
+   RemoveTextOnFocus = false,
+   Callback = function(text)
+      targetInputName = text:gsub("%s+", "")
+   end,
+})
 
+-- Label hiển thị trạng thái
+local StatusLabel = MainTab:CreateLabel("Trạng thái: chờ nó vô server khc")
 
-local Title = Instance.new("TextLabel", MainFrame)
-Title.Size, Title.BackgroundColor3, Title.BorderSizePixel = UDim2.new(1, 0, 0, 35), Color3.fromRGB(150, 0, 0), 0
-Title.Font, Title.Text, Title.TextColor3, Title.TextSize = Enum.Font.SourceSansBold, "target hunter", Color3.new(1, 1, 1), 14
+-- Biến cho tính năng Siu Cấp (Auto-Track)
+local autoTrackEnabled = false
 
+MainTab:CreateToggle({
+   Name = "⚡ Bật Auto-Track (Tự động bám đuổi ngầm)",
+   CurrentValue = false,
+   Flag = "AutoTrackToggle",
+   Callback = function(Value)
+      autoTrackEnabled = Value
+      if Value then
+         Rayfield:Notify({Title = "⚡ Auto-Track", Content = "Đã bật chế độ tự động săn ngầm!", Duration = 3})
+      else
+         Rayfield:Notify({Title = "⚡ Auto-Track", Content = "Đã tắt chế độ tự động săn!", Duration = 3})
+      end
+   end,
+})
 
-local InputTarget = Instance.new("TextBox", MainFrame)
-InputTarget.Size, InputTarget.Position, InputTarget.BackgroundColor3, InputTarget.BorderSizePixel = UDim2.new(0.9, 0, 0, 35), UDim2.new(0.05, 0, 0.25, 0), Color3.fromRGB(45, 45, 45), 0
-InputTarget.Font, InputTarget.PlaceholderText, InputTarget.Text, InputTarget.TextColor3, InputTarget.TextSize = Enum.Font.SourceSans, "Nhập tên @name của thk mà m muốn săn", "", Color3.new(1, 1, 1), 13
-
-
-local ActionBtn = Instance.new("TextButton", MainFrame)
-ActionBtn.Size, ActionBtn.Position, ActionBtn.BackgroundColor3, ActionBtn.BorderSizePixel = UDim2.new(0.9, 0, 0, 40), UDim2.new(0.05, 0, 0.5, 0), Color3.fromRGB(180, 0, 0), 0
-ActionBtn.Font, ActionBtn.Text, ActionBtn.TextColor3, ActionBtn.TextSize = Enum.Font.SourceSansBold, "ok đg tra đợi chút", Color3.new(1, 1, 1), 14
-
-
-local StatusLabel = Instance.new("TextLabel", MainFrame)
-StatusLabel.Size, StatusLabel.Position, StatusLabel.BackgroundTransparency = UDim2.new(0.9, 0, 0, 30), UDim2.new(0.05, 0, 0.75, 0), true
-StatusLabel.Font, StatusLabel.Text, StatusLabel.TextColor3, StatusLabel.TextSize = Enum.Font.SourceSansItalic, "chờ nó vô server khc", Color3.fromRGB(160, 160, 160), 12
-
-
+-- Dịch vụ hệ thống
 local TS, Players = game:GetService("TeleportService"), game:GetService("Players")
 local LocalPlayer, CurrentGameId = Players.LocalPlayer, game.PlaceId
 
-
-local function setButtonState(text, color, statusText, statusColor)
-    ActionBtn.Text = text
-    ActionBtn.BackgroundColor3 = color
-    StatusLabel.Text = statusText
-    if statusColor then StatusLabel.TextColor3 = statusColor end
+-- Hàm cập nhật trạng thái kèm thông báo Rayfield
+local function updateStatus(statusText)
+    StatusLabel:Set("Trạng thái: " .. statusText)
+    Rayfield:Notify({
+        Title = "🎯 Target Hunter",
+        Content = statusText,
+        Duration = 3
+    })
 end
 
-ActionBtn.MouseButton1Click:Connect(function()
-    local targetName = InputTarget.Text:gsub("%s+", "")
-    if targetName == "" then
-        StatusLabel.Text = "nhập tên vào k thì làm sao tìm đc"
-        return
-    end
-    
-    setButtonState("ĐANG tìm , đợi đi", Color3.fromRGB(100, 100, 100), "🔍 Đang check đợi chút")
-    
-    local success, targetUserId = pcall(function()
-        return Players:GetUserIdFromNameAsync(targetName)
-    end)
-    
-    if not success or not targetUserId then
-        setButtonState("ok r", Color3.fromRGB(180, 0, 0), "deck thấy thk nào tên như vậy")
-        return
-    end
-    
-    StatusLabel.Text = "đg check thk kia chs game gì"
-    
-    local locateSuccess, _, placeId, instanceId = pcall(function()
-        return TS:GetPlayerPlaceInstanceAsync(targetUserId)
-    end)
-    
-    if locateSuccess and instanceId then
-        if placeId == CurrentGameId then
-            setButtonState("sắp tele", Color3.fromRGB(46, 125, 50), " ok thk này đg chs tsb qua xử đi")
-            task.wait(0.5)
-            pcall(function()
-                TS:TeleportToPlaceInstance(placeId, instanceId, LocalPlayer)
-            end)
-        else
-            setButtonState("fail r", Color3.fromRGB(40, 40, 40), "thk đó chs game khc r", Color3.fromRGB(255, 150, 0))
-            task.spawn(function()
-                task.wait(3)
-                setButtonState("wait", Color3.fromRGB(180, 0, 0), "Đang chờ mục tiêu...", Color3.fromRGB(160, 160, 160))
-            end)
-        end
-    else
-        setButtonState("đg check sv", Color3.fromRGB(180, 0, 0), "❌ Nó đã Offline hoặc trong svv r")
-    end
+-- Hàm xử lý logic đi săn chung
+local function executeHunt()
+   if not targetInputName or targetInputName == "" then
+      updateStatus("nhập tên vào k thì làm sao tìm đc")
+      return false
+   end
+   
+   local success, targetUserId = pcall(function()
+      return Players:GetUserIdFromNameAsync(targetInputName)
+   end)
+   
+   if not success or not targetUserId then
+      updateStatus("deck thấy thk nào tên như vậy")
+      return false
+   end
+   
+   local locateSuccess, _, placeId, instanceId = pcall(function()
+      return TS:GetPlayerPlaceInstanceAsync(targetUserId)
+   end)
+   
+   if locateSuccess and instanceId then
+      if placeId == CurrentGameId then
+         updateStatus("ok thk này đg chs tsb qua xử đi")
+         task.wait(0.5)
+         pcall(function()
+            TS:TeleportToPlaceInstance(placeId, instanceId, LocalPlayer)
+         end)
+         return true
+      else
+         updateStatus("nó chán tsb rồi, qua game khác chơi kìa, kệ mẹ nó đi")
+         return false
+      end
+   else
+      updateStatus("❌ Nó đã Offline hoặc trong svv r")
+      return false
+   end
+end
+
+-- Nút kích hoạt thủ công
+MainTab:CreateButton({
+   Name = "⚔️ KÍCH HOẠT ĐUỔI THEO (Thủ Công)",
+   Callback = function()
+      executeHunt()
+   end,
+})
+
+-- Vòng lặp chạy ngầm cho tính năng Auto-Track siêu cấp
+task.spawn(function()
+   while true do
+      if autoTrackEnabled and targetInputName ~= "" then
+         pcall(function()
+            executeHunt()
+         end)
+         task.wait(5) -- Cứ mỗi 5 giây quét lại một lần tự động
+      else
+         task.wait(1)
+      end
+   end
 end)
+
+-- Thông báo khi load xong script
+Rayfield:Notify({
+   Title = "Thành Công!",
+   Content = "Bản Siu Cấp kèm Auto-Track đã sẵn sàng!",
+   Duration = 4
+})
